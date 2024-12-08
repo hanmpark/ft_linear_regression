@@ -1,13 +1,17 @@
 def main():
-	with open("theta.csv", "r") as theta_file:
-		if not theta_file:
-			print("Error: train the model first")
-			return
+	try:
+		with open("theta.csv", "r") as theta_file:
+			values = theta_file.read().split(",")
+	except FileNotFoundError:
+		print("theta.csv file not found. Please train the model first.")
+		return
+	except Exception as e:
+		print(f"An error occurred: {e}")
+		return
 
-		values = theta_file.read().split(",")
-		if len(values) != 2 or not all([value.replace(".", "", 1).replace("-", "", 1).isdigit() for value in values]):
-			print("Error: theta.csv is not properly formatted")
-			return
+	if len(values) != 2 or not all([value.replace(".", "", 1).replace("-", "", 1).isdigit() for value in values]):
+		print("Error: theta.csv is not properly formatted")
+		return
 
 	theta0, theta1 = [float(value) for value in values]
 

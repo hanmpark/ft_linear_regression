@@ -35,12 +35,19 @@ def find_theta(mileages, prices):
 	return theta0, theta1
 
 def main():
-	with open("data.csv", "r") as file:
-		data = [data.split(",") for data in [line.strip() for line in file.readlines()]][1:]
-		data = [[int(values[0]), int(values[1])] for values in data]
+	try:
+		with open("data.csv", "r") as file:
+			data = [data.split(",") for data in [line.strip() for line in file.readlines()]][1:]
+			data = [[int(values[0]), int(values[1])] for values in data]
 
-		mileages = [values[0] for values in data]
-		prices = [values[1] for values in data]
+			mileages = [values[0] for values in data]
+			prices = [values[1] for values in data]
+	except FileNotFoundError:
+		print("data.csv file not found.")
+		return
+	except Exception as e:
+		print(f"An error occurred: {e}")
+		return
 
 	theta0, theta1 = find_theta(mileages, prices)
 
