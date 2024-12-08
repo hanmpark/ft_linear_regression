@@ -4,7 +4,8 @@ import json
 import requests
 import time
 from dotenv import load_dotenv
-from datetime import datetime
+from datetime import datetime, timedelta
+from train_model import find_theta
 
 def get_access_token(UID, SECRET):
 	url = "https://api.intra.42.fr/oauth/token"
@@ -19,36 +20,55 @@ def get_access_token(UID, SECRET):
 
 def fetch_logtime(login, access_token):
 	headers = {"Authorization": f"Bearer {access_token}"}
-	url = f"https://api.intra.42.fr/v2/users/{login}/locations"
+	user_url = f"https://api.intra.42.fr/v2/users/{login}"
+	log_url = f"https://api.intra.42.fr/v2/users/{login}/locations"
 	total_seconds = 0
 	retries = 0
+	unique_days = set()
 
-	while url:
-		response = requests.get(url, headers=headers)
+	# Fetch user details to get the cursus start date
+	user_response = requests.get(user_url, headers=headers)
+	if user_response.status_code == 404:
+		print(f"Error: User {login} does not exist.")
+		return 0, 0
+
+	user_response.raise_for_status()
+	user_data = user_response.json()
+
+	# Extract cursus start date
+	common_core_cursus = None
+	for cursus in user_data["cursus_users"]:
+		if cursus["cursus"]["name"] == "42cursus":
+			common_core_cursus = cursus
+			break
+
+	if not common_core_cursus:
+		print(f"Error: User {login} has no 42cursus data.")
+		return 0, 0
+
+	begin_date = datetime.fromisoformat(common_core_cursus["begin_at"].replace("Z", "+00:00")).date()
+	completion_date = datetime.now().date()
+
+	if "end_at" in common_core_cursus and common_core_cursus["end_at"]:
+		completion_date = datetime.fromisoformat(common_core_cursus["end_at"].replace("Z", "+00:00")).date()
+
+	total_days_in_cursus = (completion_date - begin_date).days + 1
+
+	while log_url:
+		response = requests.get(log_url, headers=headers)
 
 		# If we hit rate limiting (HTTP 429)
 		if response.status_code == 429:
 			retries += 1
-
 			retry_after = response.headers.get("retry-after")
-
 			if retry_after:
-				# If the 'retry-after' header is present, wait for that many seconds
-				wait_time = int(retry_after)
-				time.sleep(wait_time)
-			else:
-				# If no 'retry-after' header, fallback to exponential backoff
-				wait_time = 2 ** retries
-				print(f"Waiting for {wait_time} seconds (exponential backoff).")
-				time.sleep(wait_time)
-
+				time.sleep(int(retry_after))
 			continue
 
 		response.raise_for_status()
 		logins = response.json()
-		print(logins)
 
-		# Calculate logtime for each session
+		# Calculate logtime for each session within cursus duration
 		for log in logins:
 			end_at = log.get("end_at")
 			begin_at = log.get("begin_at")
@@ -59,6 +79,18 @@ def fetch_logtime(login, access_token):
 					end_at_dt = datetime.fromisoformat(end_at.replace("Z", "+00:00"))
 					begin_at_dt = datetime.fromisoformat(begin_at.replace("Z", "+00:00"))
 
+					# Clamp the session to the cursus duration
+					if end_at_dt.date() < begin_date or begin_at_dt.date() > completion_date:
+						continue
+
+					begin_dt = datetime.fromisoformat(begin_at.replace("Z", "+00:00")).date()
+					unique_days.add(begin_dt)
+					end_dt = datetime.fromisoformat(end_at.replace("Z", "+00:00")).date()
+					current_dt = begin_dt
+					while current_dt <= end_dt:
+						unique_days.add(current_dt)
+						current_dt += timedelta(days=1)
+
 					# Accumulate session duration in seconds
 					session_seconds = (end_at_dt - begin_at_dt).total_seconds()
 					total_seconds += session_seconds
@@ -68,10 +100,10 @@ def fetch_logtime(login, access_token):
 					print(f"Begin: {begin_at}, End: {end_at}, Error: {e}")
 
 		# Check for next page
-		url = response.links.get("next", {}).get("url")
+		log_url = response.links.get("next", {}).get("url")
 
 	total_hours = total_seconds / 3600
-	return total_hours
+	return total_hours, len(unique_days), total_days_in_cursus
 
 def main():
 	load_dotenv()
@@ -85,14 +117,15 @@ def main():
 			data = json.load(file)
 
 	except FileNotFoundError:
+		print("common_core_completed.json not found.")
 		return
 	except Exception as e:
 		print(f"An error occurred: {e}")
 		return
 
-	# input("42 login: ")
-	logtime = fetch_logtime("hanmpark", access_token)
-	print(f"Total logtime: {logtime:.2f} hours")
+	login = input("42 login: ")
+	logtime, connected_days, total_days_in_cursus = fetch_logtime(login, access_token)
+	print(f"Total logtime: {logtime:.2f} hours in {connected_days} days out of {total_days_in_cursus} days in the cursus.")
 
 if __name__ == "__main__":
 	main()
