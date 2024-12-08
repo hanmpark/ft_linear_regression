@@ -25,7 +25,7 @@ def find_theta(mileages, prices):
 		theta1 -= theta1_gradient * learning_rate
 
 		# Print the cost using the mean squared error:
-		if epoch % 100 == 0:  # Optional: Print cost every 100 epochs for better readability
+		if epoch % 100 == 0:
 			cost = (1/n) * sum([(prices_pred[i] - prices[i]) ** 2 for i in range(n)])
 			print(f"Epoch {epoch}: Cost = {cost}, theta0 = {theta0}, theta1 = {theta1}")
 
@@ -47,6 +47,19 @@ def main():
 	mileage_range = [min(mileages) + i * (max(mileages) - min(mileages)) / 100 for i in range(101)]
 	predicted_prices = [theta0 + theta1 * x for x in mileage_range]
 
+	# Plot the data points
+	plt.scatter(mileages, prices, color='blue', label='Data Points')
+
+	# Add labels and title
+	plt.xlabel('Mileage')
+	plt.ylabel('Price')
+	plt.title('Car Mileage vs Price with Regression Line')
+	plt.legend()
+
+	# Display the scatter plot
+	plt.grid(True)
+	plt.show()
+
 	plt.scatter(mileages, prices, color='blue', label='Data Points')
 	plt.plot(mileage_range, predicted_prices, color='red', label='Regression Line')
 
@@ -56,9 +69,9 @@ def main():
 	plt.title('Car Mileage vs Price with Regression Line')
 	plt.legend()
 
-	# Display the plot
+	# Display the scatter plot with regression line
 	plt.grid(True)
-	plt.savefig("regression_plot.png")
+	plt.show()
 
 	with open("theta.csv", "w") as theta_file:
 		theta_file.write(f"{theta0},{theta1}")
