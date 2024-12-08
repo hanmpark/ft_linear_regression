@@ -18,42 +18,83 @@ def get_access_token(UID, SECRET):
 	response.raise_for_status()
 	return response.json()["access_token"]
 
+def fetch_cursus_duration(login, access_token):
+	headers = {"Authorization": f"Bearer {access_token}"}
+	begin_url = f"https://api.intra.42.fr/v2/users/{login}/cursus_users"
+	end_url = f"https://api.intra.42.fr/v2/users/{login}/projects_users"
+	begin_date = None
+	end_date = None
+	retries = 0
+	required_projects = ("Exam Rank 06", "ft_transcendence")
+	projects_done = []
+
+	response = requests.get(begin_url, headers=headers)
+
+	if response.status_code == 404:
+		print(f"Error: User {login} not found.")
+		return None, None
+
+	response.raise_for_status()
+
+	cursus_users = response.json()
+
+	for cursus in cursus_users:
+		cursus_name = cursus.get("cursus", {}).get("name")
+		if cursus_name == "42cursus":
+			begin_at = cursus.get("begin_at")
+			if begin_at:
+				begin_date = datetime.fromisoformat(begin_at.replace("Z", "+00:00")).date()
+
+	while end_url:
+		response = requests.get(end_url, headers=headers)
+
+		if response.status_code == 429:
+			retries += 1
+			retry_after = response.headers.get("retry-after")
+			if retry_after:
+				time.sleep(int(retry_after))
+			continue
+
+		response.raise_for_status()
+		projects = response.json()
+
+		for project in projects:
+			project_name = project.get("project", {}).get("name")
+			validated = project.get("validated?")
+			if project_name in required_projects and validated:
+				project_marked_at = project.get("marked_at")
+				projects_done.append(project_marked_at)
+
+		if len(projects_done) == 2:
+			break
+
+		end_url = response.links.get("next", {}).get("url")
+
+	if len(projects_done) == 2:
+		end_date = datetime.fromisoformat(projects_done[0].replace("Z", "+00:00")).date()
+
+	return begin_date, end_date
+
 def fetch_logtime(login, access_token):
 	headers = {"Authorization": f"Bearer {access_token}"}
-	user_url = f"https://api.intra.42.fr/v2/users/{login}"
 	log_url = f"https://api.intra.42.fr/v2/users/{login}/locations"
 	total_seconds = 0
 	retries = 0
 	unique_days = set()
 
-	# Fetch user details to get the cursus start date
-	user_response = requests.get(user_url, headers=headers)
-	if user_response.status_code == 404:
-		print(f"Error: User {login} does not exist.")
-		return 0, 0
+	# Get the cursus duration
+	begin_date, end_date = fetch_cursus_duration(login, access_token)
+	if not begin_date:
+		return 0, 0, 0
 
-	user_response.raise_for_status()
-	user_data = user_response.json()
-
-	# Extract cursus start date
-	common_core_cursus = None
-	for cursus in user_data["cursus_users"]:
-		if cursus["cursus"]["name"] == "42cursus":
-			common_core_cursus = cursus
-			break
-
-	if not common_core_cursus:
-		print(f"Error: User {login} has no 42cursus data.")
-		return 0, 0
-
-	begin_date = datetime.fromisoformat(common_core_cursus["begin_at"].replace("Z", "+00:00")).date()
-	completion_date = datetime.now().date()
-
-	if "end_at" in common_core_cursus and common_core_cursus["end_at"]:
-		completion_date = datetime.fromisoformat(common_core_cursus["end_at"].replace("Z", "+00:00")).date()
+	if end_date:
+		completion_date = end_date
+	else:
+		completion_date = datetime.now().date()
 
 	total_days_in_cursus = (completion_date - begin_date).days + 1
 
+	# Fetch logtime during the common core
 	while log_url:
 		response = requests.get(log_url, headers=headers)
 
