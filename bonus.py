@@ -5,7 +5,7 @@ import requests
 import time
 from dotenv import load_dotenv
 from datetime import datetime, timedelta
-from train_model import find_theta
+from train_model import linear_regression
 
 def get_access_token(UID, SECRET):
 	url = "https://api.intra.42.fr/oauth/token"
@@ -85,7 +85,7 @@ def fetch_logtime(login, access_token):
 	# Get the cursus duration
 	begin_date, end_date = fetch_cursus_duration(login, access_token)
 	if not begin_date:
-		return 0, 0, 0
+		return 0, 0, 0, False
 
 	if end_date:
 		completion_date = end_date
@@ -144,7 +144,47 @@ def fetch_logtime(login, access_token):
 		log_url = response.links.get("next", {}).get("url")
 
 	total_hours = total_seconds / 3600
-	return total_hours, len(unique_days), total_days_in_cursus
+	return total_hours, len(unique_days), total_days_in_cursus, end_date != None
+
+def visualize_data(data, logtime, connected_days, total_days_in_cursus):
+	days_duration = [login_data["dateDuration"] for login_data in data]
+	logtime_per_day = [login_data["logtimeHours"] / login_data["dateDuration"] for login_data in data]
+
+	plt.scatter(logtime_per_day, days_duration, color='blue', label='Data Points')
+
+	plt.xlabel("Logtime per Day (hours)")
+	plt.ylabel("Days in cursus")
+	plt.title("Days in common core vs. Logtime per Day")
+	plt.legend()
+
+	plt.grid(True)
+	plt.savefig("plot.png")
+
+	theta0, theta1 = linear_regression(logtime_per_day, days_duration)
+
+	logtime_per_day_range = [min(logtime_per_day) + i * (max(logtime_per_day) - min(logtime_per_day)) / 100 for i in range(101)]
+	predicted_days_duration = [theta0 + theta1 * x for x in logtime_per_day_range]
+
+	plt.scatter(logtime_per_day, days_duration, color='blue', label='Data Points')
+	plt.plot(logtime_per_day_range, predicted_days_duration, color='red', label='Regression Line')
+
+	plt.xlabel("Logtime per Day (hours)")
+	plt.ylabel("Days in cursus")
+	plt.title("Days in common core vs. Logtime per Day with regression line")
+	plt.legend()
+
+	plt.grid(True)
+	plt.savefig("plot_with_linear.png")
+
+	user_logtime_per_day = logtime / total_days_in_cursus
+
+	print(f"User logtime per day: {user_logtime_per_day:.2f} hours")
+
+	predicted_days_for_user = theta0 + theta1 * user_logtime_per_day
+
+	days_left = predicted_days_for_user - total_days_in_cursus
+
+	print(f"Predicted days left in common core: {days_left:.2f}")
 
 def main():
 	load_dotenv()
@@ -165,8 +205,13 @@ def main():
 		return
 
 	login = input("42 login: ")
-	logtime, connected_days, total_days_in_cursus = fetch_logtime(login, access_token)
+	logtime, connected_days, total_days_in_cursus, has_finished_common_core = fetch_logtime(login, access_token)
 	print(f"Total logtime: {logtime:.2f} hours in {connected_days} days out of {total_days_in_cursus} days in the cursus.")
+
+	if has_finished_common_core:
+		print("User has already finished the common core.")
+	else:
+		visualize_data(data, logtime, connected_days, total_days_in_cursus)
 
 if __name__ == "__main__":
 	main()

@@ -1,6 +1,6 @@
 import matplotlib.pyplot as plt
 
-def find_theta(mileages, prices):
+def linear_regression(mileages, prices):
 	max_mileage = max(mileages)
 	max_price = max(prices)
 	mileages = [mileage / max_mileage for mileage in mileages]
@@ -10,7 +10,7 @@ def find_theta(mileages, prices):
 	theta0 = 0
 	theta1 = 0
 	learning_rate = 0.1
-	epochs = int(input("Enter the number of epochs: "))
+	epochs = 1500
 
 	n = len(mileages)
 	for epoch in range(epochs):
@@ -49,7 +49,7 @@ def main():
 		print(f"An error occurred: {e}")
 		return
 
-	theta0, theta1 = find_theta(mileages, prices)
+	theta0, theta1 = linear_regression(mileages, prices)
 
 	mileage_range = [min(mileages) + i * (max(mileages) - min(mileages)) / 100 for i in range(101)]
 	predicted_prices = [theta0 + theta1 * x for x in mileage_range]
