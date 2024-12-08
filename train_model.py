@@ -1,12 +1,16 @@
+import matplotlib.pyplot as plt
+
 def find_theta(mileages, prices):
 	max_mileage = max(mileages)
+	max_price = max(prices)
 	mileages = [mileage / max_mileage for mileage in mileages]
+	prices = [price / max_price for price in prices]
 
 	# estimatedPrice = theta0 + theta1 * mileages
 	theta0 = 0
 	theta1 = 0
-	learning_rate = 1
-	epochs = 1000
+	learning_rate = 0.1
+	epochs = int(input("Enter the number of epochs: "))
 
 	n = len(mileages)
 	for epoch in range(epochs):
@@ -23,7 +27,10 @@ def find_theta(mileages, prices):
 		# Print the cost using the mean squared error:
 		if epoch % 100 == 0:  # Optional: Print cost every 100 epochs for better readability
 			cost = (1/n) * sum([(prices_pred[i] - prices[i]) ** 2 for i in range(n)])
-			print(f"Epoch {epoch}/{epochs}: cost = {cost:.4f}, theta0 = {theta0:.4f}, theta1 = {theta1:.4f}")
+			print(f"Epoch {epoch}: Cost = {cost}, theta0 = {theta0}, theta1 = {theta1}")
+
+	theta0 *= max_price
+	theta1 *= max_price / max_mileage
 
 	return theta0, theta1
 
@@ -34,11 +41,27 @@ def main():
 
 		mileages = [values[0] for values in data]
 		prices = [values[1] for values in data]
-		theta0, theta1 = find_theta(mileages, prices)
 
-		theta_file = open("theta.csv", "w")
+	theta0, theta1 = find_theta(mileages, prices)
+
+	mileage_range = [min(mileages) + i * (max(mileages) - min(mileages)) / 100 for i in range(101)]
+	predicted_prices = [theta0 + theta1 * x for x in mileage_range]
+
+	plt.scatter(mileages, prices, color='blue', label='Data Points')
+	plt.plot(mileage_range, predicted_prices, color='red', label='Regression Line')
+
+	# Add labels and title
+	plt.xlabel('Mileage')
+	plt.ylabel('Price')
+	plt.title('Car Mileage vs Price with Regression Line')
+	plt.legend()
+
+	# Display the plot
+	plt.grid(True)
+	plt.savefig("regression_plot.png")
+
+	with open("theta.csv", "w") as theta_file:
 		theta_file.write(f"{theta0},{theta1}")
-		theta_file.close()
 
 if __name__ == "__main__":
 	main()
