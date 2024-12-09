@@ -206,7 +206,7 @@ def main():
 
 	login = input("42 login: ")
 	logtime, connected_days, total_days_in_cursus, has_finished_common_core = fetch_logtime(login, access_token)
-	print(f"Total logtime: {logtime:.2f} hours in {connected_days} days out of {total_days_in_cursus} days in the cursus.")
+	print(f"\033[1mtotal logtime: {logtime:.2f} hours, connected days: {connected_days}, total days: {total_days_in_cursus}\033[0m")
 
 	if has_finished_common_core:
 		print("User has already finished the common core.")
