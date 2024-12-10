@@ -4,16 +4,12 @@
 
 **ft_linear_regression** is a project aimed at implementing a simple linear regression model from scratch to analyze and predict data. The project is an excellent introduction to machine learning concepts, particularly in understanding linear relationships and how models are trained.
 
----
-
 ## Features
 
 - **Prediction**: Use the trained model to make predictions based on input data.
 - **Training**: Implement gradient descent to train the model and find the optimal linear function.
 - **Evaluation**: Evaluate the model's performance by calculating the mean squared error.
 - **Visualization**: Optionally plot the dataset and the regression line for better understanding.
-
----
 
 ## Installation
 
@@ -25,8 +21,6 @@ git clone https://github.com/hanmpark/ft_linear_regression.git && cd ft_linear_r
 ```bash
 pip install -r requirements.txt
 ```
-
----
 
 ## Usage
 ### Training the Model
@@ -44,14 +38,10 @@ Use the trained model to make predictions:
 python predict.py
 ```
 
----
-
 ## File Structure
 - `src/train_model.py`: Contains the training logic for the linear regression model.
 - `src/predict.py`: Uses the trained parameters to make predictions.
 - `data/`: Directory for sample datasets.
-
----
 
 ## Project Constraints
 - This project avoids using external learning libraries like `scikit-learn` to better understand the fundamentals.
