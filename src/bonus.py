@@ -158,7 +158,8 @@ def visualize_data(data, logtime, connected_days, total_days_in_cursus):
 	plt.legend()
 
 	plt.grid(True)
-	plt.savefig("plot.png")
+	plt.show()
+	plt.savefig("./img/common_core_plot.png")
 
 	theta0, theta1 = linear_regression(logtime_per_day, days_duration)
 
@@ -174,7 +175,8 @@ def visualize_data(data, logtime, connected_days, total_days_in_cursus):
 	plt.legend()
 
 	plt.grid(True)
-	plt.savefig("plot_with_linear.png")
+	plt.show()
+	plt.savefig("./img/common_core_plot_with_linear.png")
 
 	user_logtime_per_day = logtime / total_days_in_cursus
 
@@ -191,10 +193,12 @@ def main():
 	UID = os.getenv("42UID")
 	SECRET = os.getenv("42SECRET")
 
+	os.makedirs("img", exist_ok=True)
+
 	access_token = get_access_token(UID, SECRET)
 
 	try:
-		with open("common_core_completed.json", "r") as file:
+		with open("./data/common_core_completed.json", "r") as file:
 			data = json.load(file)
 
 	except FileNotFoundError:

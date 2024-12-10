@@ -1,6 +1,6 @@
 def main():
 	try:
-		with open("theta.csv", "r") as theta_file:
+		with open("./data/theta.csv", "r") as theta_file:
 			values = theta_file.read().split(",")
 	except FileNotFoundError:
 		print("theta.csv file not found. Please train the model first.")
