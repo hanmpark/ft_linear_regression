@@ -11,6 +11,21 @@
 - **Evaluation**: Evaluate the model's performance by calculating the mean squared error.
 - **Visualization**: Optionally plot the dataset and the regression line for better understanding.
 
+## Project Structure
+```
+.
+├── LICENSE
+├── README.md
+├── data
+│   ├── data.csv
+│   └── theta.csv
+├── requirements.txt
+└── src
+    ├── bonus.py
+    ├── predict.py
+    └── train_model.py
+```
+
 ## Installation
 
 1. Clone this repository:
