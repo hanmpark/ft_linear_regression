@@ -207,8 +207,8 @@ def visualize_data(data: dict, logtime: float, total_days_in_cursus: int):
     plt.legend()
 
     plt.grid(True)
-    plt.show()
     plt.savefig("./img/common_core_plot.png")
+    plt.show()
 
     theta0, theta1 = linear_regression(logtime_per_day, days_duration)
 
@@ -224,8 +224,8 @@ def visualize_data(data: dict, logtime: float, total_days_in_cursus: int):
     plt.legend()
 
     plt.grid(True)
-    plt.show()
     plt.savefig("./img/common_core_plot_with_linear.png")
+    plt.show()
 
     user_logtime_per_day = logtime / total_days_in_cursus
 

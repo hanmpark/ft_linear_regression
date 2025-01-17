@@ -120,8 +120,8 @@ def print_data(mileages, prices, theta0, theta1):
 
     # Display the scatter plot
     plt.grid(True)
-    plt.show()
     plt.savefig("./img/plot.png")
+    plt.show()
 
     plt.scatter(mileages, prices, color='blue', label='Data Points')
     plt.plot(mileage_range, predicted_prices, color='red', label='Regression Line')
@@ -134,8 +134,8 @@ def print_data(mileages, prices, theta0, theta1):
 
     # Display the scatter plot with regression line
     plt.grid(True)
-    plt.show()
     plt.savefig("./img/plot_with_linear.png")
+    plt.show()
 
 
 def main():
