@@ -3,19 +3,20 @@ import argparse
 import matplotlib.pyplot as plt
 
 
-def linear_regression(mileages, prices, verbose=False):
+def linear_regression(mileages: list, prices: list, verbose=False):
     """
     Train a linear regression model on the given data.
 
     Args:
-        - mileages: A list of integers representing the car mileages.
-        - prices: A list of integers representing the car prices.
-        - verbose: A boolean indicating whether to print the cost at each epoch.
+        mileages (list): A list of integers representing the car mileages.
+        prices (list): A list of integers representing the car prices.
+        verbose (bool): A boolean indicating whether to print the cost at each epoch.
 
     Returns:
-        - theta0: The intercept of the regression line.
-        - theta1: The slope of the regression line.
+        theta0 (float): The intercept of the regression line.
+        theta1 (float): The slope of the regression line.
     """
+
     max_mileage = max(mileages)
     max_price = max(prices)
     mileages = [mileage / max_mileage for mileage in mileages]
@@ -55,8 +56,9 @@ def parse_args():
     Parse the command line arguments.
 
     Returns:
-        - args: An object containing the parsed arguments
+        args: An object containing the parsed arguments
     """
+
     parser = argparse.ArgumentParser(description="Train a linear regression model on car mileage and price data")
 
     parser.add_argument('-v', '--verbose', action='store_true', help="Enable verbose output.")
@@ -69,9 +71,10 @@ def parse_data():
     Parse the data from the data.csv file and return the mileages and prices as lists.
 
     Returns:
-        - mileages: A list of integers representing the car mileages.
-        - prices: A list of integers representing the car prices.
+        mileages: A list of integers representing the car mileages.
+        prices: A list of integers representing the car prices.
     """
+
     try:
         with open("./data/data.csv", "r") as file:
             data = [data.split(",") for data in [line.strip() for line in file.readlines()]][1:]
@@ -96,14 +99,12 @@ def print_data(mileages, prices, theta0, theta1):
     Print the data points and the regression line.
 
     Args:
-        - mileages: A list of integers representing the car mileages.
-        - prices: A list of integers representing the car prices.
-        - theta0: The intercept of the regression line.
-        - theta1: The slope of the regression line.
-
-    Returns:
-        None
+        mileages: A list of integers representing the car mileages.
+        prices: A list of integers representing the car prices.
+        theta0: The intercept of the regression line.
+        theta1: The slope of the regression line.
     """
+
     mileage_range = [min(mileages) + i * (max(mileages) - min(mileages)) / 100 for i in range(101)]
     predicted_prices = [theta0 + theta1 * x for x in mileage_range]
 
@@ -137,19 +138,22 @@ def print_data(mileages, prices, theta0, theta1):
 
 
 def main():
-    args = parse_args()
+    try:
+        args = parse_args()
 
-    os.makedirs("img", exist_ok=True)
+        os.makedirs("img", exist_ok=True)
 
-    mileages, prices = parse_data()
-    if mileages is None or prices is None:
-        return
+        mileages, prices = parse_data()
+        if mileages is None or prices is None:
+            return
 
-    theta0, theta1 = linear_regression(mileages, prices, args.verbose == True)
-    with open("./data/theta.csv", "w") as theta_file:
-        theta_file.write(f"{theta0},{theta1}")
+        theta0, theta1 = linear_regression(mileages, prices, args.verbose == True)
+        with open("./data/theta.csv", "w") as theta_file:
+            theta_file.write(f"{theta0},{theta1}")
 
-    print_data(mileages, prices, theta0, theta1)
+        print_data(mileages, prices, theta0, theta1)
+    except Exception as e:
+        print(f"An error occurred: {e}")
 
 
 if __name__ == "__main__":

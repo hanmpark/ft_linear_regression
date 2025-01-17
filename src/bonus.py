@@ -7,215 +7,265 @@ from dotenv import load_dotenv
 from datetime import datetime, timedelta
 from train_model import linear_regression
 
-def get_access_token(UID, SECRET):
-	url = "https://api.intra.42.fr/oauth/token"
-	data = {
-		"grant_type": "client_credentials",
-		"client_id": UID,
-		"client_secret": SECRET
-	}
-	response = requests.post(url, data=data)
-	response.raise_for_status()
-	return response.json()["access_token"]
+
+def get_access_token(UID: str, SECRET: str) -> str:
+    """
+    Get an access token from the 42 API using the UID and SECRET.
+
+    Args:
+        UID (str): The UID of the 42 API application.
+        SECRET (str): The SECRET
+
+    Returns:
+        str: The access token.
+    """
+
+    url = "https://api.intra.42.fr/oauth/token"
+    data = {
+        "grant_type": "client_credentials",
+        "client_id": UID,
+        "client_secret": SECRET
+    }
+    response = requests.post(url, data=data)
+    response.raise_for_status()
+    return response.json()["access_token"]
+
 
 def fetch_cursus_duration(login, access_token):
-	headers = {"Authorization": f"Bearer {access_token}"}
-	begin_url = f"https://api.intra.42.fr/v2/users/{login}/cursus_users"
-	end_url = f"https://api.intra.42.fr/v2/users/{login}/projects_users"
-	begin_date = None
-	end_date = None
-	retries = 0
-	required_projects = ("Exam Rank 06", "ft_transcendence")
-	projects_done = []
+    """
+    Fetch the begin and end date of the 42cursus for a given user.
 
-	response = requests.get(begin_url, headers=headers)
+    Args:
+        login (str): The login of the user.
+        access_token (str): The access token to access the 42 API.
 
-	if response.status_code == 404:
-		print(f"Error: User {login} not found.")
-		return None, None
+    Returns:
+        tuple: A tuple containing the begin and end date of the 42cursus.
+    """
 
-	response.raise_for_status()
+    headers = {"Authorization": f"Bearer {access_token}"}
+    begin_url = f"https://api.intra.42.fr/v2/users/{login}/cursus_users"
+    end_url = f"https://api.intra.42.fr/v2/users/{login}/projects_users"
+    begin_date = None
+    end_date = None
+    retries = 0
+    required_projects = ("Exam Rank 06", "ft_transcendence")
+    projects_done = []
 
-	cursus_users = response.json()
+    response = requests.get(begin_url, headers=headers)
 
-	for cursus in cursus_users:
-		cursus_name = cursus.get("cursus", {}).get("name")
-		if cursus_name == "42cursus":
-			begin_at = cursus.get("begin_at")
-			if begin_at:
-				begin_date = datetime.fromisoformat(begin_at.replace("Z", "+00:00")).date()
+    if response.status_code == 404:
+        print(f"Error: User {login} not found.")
+        return None, None
 
-	while end_url:
-		response = requests.get(end_url, headers=headers)
+    response.raise_for_status()
 
-		if response.status_code == 429:
-			retries += 1
-			retry_after = response.headers.get("retry-after")
-			if retry_after:
-				time.sleep(int(retry_after))
-			continue
+    cursus_users = response.json()
 
-		response.raise_for_status()
-		projects = response.json()
+    for cursus in cursus_users:
+        cursus_name = cursus.get("cursus", {}).get("name")
+        if cursus_name == "42cursus":
+            begin_at = cursus.get("begin_at")
+            if begin_at:
+                begin_date = datetime.fromisoformat(begin_at.replace("Z", "+00:00")).date()
 
-		for project in projects:
-			project_name = project.get("project", {}).get("name")
-			validated = project.get("validated?")
-			if project_name in required_projects and validated:
-				project_marked_at = project.get("marked_at")
-				projects_done.append(project_marked_at)
+    while end_url:
+        response = requests.get(end_url, headers=headers)
 
-		if len(projects_done) == 2:
-			break
+        if response.status_code == 429:
+            retries += 1
+            retry_after = response.headers.get("retry-after")
+            if retry_after:
+                time.sleep(int(retry_after))
+            continue
 
-		end_url = response.links.get("next", {}).get("url")
+        response.raise_for_status()
+        projects = response.json()
 
-	if len(projects_done) == 2:
-		end_date = datetime.fromisoformat(projects_done[0].replace("Z", "+00:00")).date()
+        for project in projects:
+            project_name = project.get("project", {}).get("name")
+            validated = project.get("validated?")
+            if project_name in required_projects and validated:
+                project_marked_at = project.get("marked_at")
+                projects_done.append(project_marked_at)
 
-	return begin_date, end_date
+        if len(projects_done) == 2:
+            break
 
-def fetch_logtime(login, access_token):
-	headers = {"Authorization": f"Bearer {access_token}"}
-	log_url = f"https://api.intra.42.fr/v2/users/{login}/locations"
-	total_seconds = 0
-	retries = 0
-	unique_days = set()
+        end_url = response.links.get("next", {}).get("url")
 
-	# Get the cursus duration
-	begin_date, end_date = fetch_cursus_duration(login, access_token)
-	if not begin_date:
-		return 0, 0, 0, False
+    if len(projects_done) == 2:
+        end_date = datetime.fromisoformat(projects_done[0].replace("Z", "+00:00")).date()
 
-	if end_date:
-		completion_date = end_date
-	else:
-		completion_date = datetime.now().date()
+    return begin_date, end_date
 
-	total_days_in_cursus = (completion_date - begin_date).days + 1
 
-	# Fetch logtime during the common core
-	while log_url:
-		response = requests.get(log_url, headers=headers)
+def fetch_logtime(login: str, access_token: str):
+    """
+    Fetch the logtime for a given user.
 
-		# If we hit rate limiting (HTTP 429)
-		if response.status_code == 429:
-			retries += 1
-			retry_after = response.headers.get("retry-after")
-			if retry_after:
-				time.sleep(int(retry_after))
-			continue
+    Args:
+        login (str): The login of the user.
+        access_token (str): The access token to access the 42 API.
 
-		response.raise_for_status()
-		logins = response.json()
+    Returns:
+        total_hours (float): The total logtime in hours.
+        connected_days (int): The number of days the user has connected.
+        total_days_in_cursus (int): The total number of days in the cursus.
+        has_finished_common_core (bool): True if the user has finished the common core.
+    """
 
-		# Calculate logtime for each session within cursus duration
-		for log in logins:
-			end_at = log.get("end_at")
-			begin_at = log.get("begin_at")
+    headers = {"Authorization": f"Bearer {access_token}"}
+    log_url = f"https://api.intra.42.fr/v2/users/{login}/locations"
+    total_seconds = 0
+    retries = 0
+    unique_days = set()
 
-			if end_at and begin_at:
-				try:
-					# Parse ISO 8601 strings to datetime objects
-					end_at_dt = datetime.fromisoformat(end_at.replace("Z", "+00:00"))
-					begin_at_dt = datetime.fromisoformat(begin_at.replace("Z", "+00:00"))
+    # Get the cursus duration
+    begin_date, end_date = fetch_cursus_duration(login, access_token)
+    if not begin_date:
+        return 0, 0, 0, False
 
-					# Clamp the session to the cursus duration
-					if end_at_dt.date() < begin_date or begin_at_dt.date() > completion_date:
-						continue
+    if end_date:
+        completion_date = end_date
+    else:
+        completion_date = datetime.now().date()
 
-					begin_dt = datetime.fromisoformat(begin_at.replace("Z", "+00:00")).date()
-					unique_days.add(begin_dt)
-					end_dt = datetime.fromisoformat(end_at.replace("Z", "+00:00")).date()
-					current_dt = begin_dt
-					while current_dt <= end_dt:
-						unique_days.add(current_dt)
-						current_dt += timedelta(days=1)
+    total_days_in_cursus = (completion_date - begin_date).days + 1
 
-					# Accumulate session duration in seconds
-					session_seconds = (end_at_dt - begin_at_dt).total_seconds()
-					total_seconds += session_seconds
+    # Fetch logtime during the common core
+    while log_url:
+        response = requests.get(log_url, headers=headers)
 
-				except ValueError as e:
-					print(f"Error parsing dates for login: {log}")
-					print(f"Begin: {begin_at}, End: {end_at}, Error: {e}")
+        # If we hit rate limiting (HTTP 429)
+        if response.status_code == 429:
+            retries += 1
+            retry_after = response.headers.get("retry-after")
+            if retry_after:
+                time.sleep(int(retry_after))
+            continue
 
-		# Check for next page
-		log_url = response.links.get("next", {}).get("url")
+        response.raise_for_status()
+        logins = response.json()
 
-	total_hours = total_seconds / 3600
-	return total_hours, len(unique_days), total_days_in_cursus, end_date != None
+        # Calculate logtime for each session within cursus duration
+        for log in logins:
+            end_at = log.get("end_at")
+            begin_at = log.get("begin_at")
 
-def visualize_data(data, logtime, connected_days, total_days_in_cursus):
-	days_duration = [login_data["dateDuration"] for login_data in data]
-	logtime_per_day = [login_data["logtimeHours"] / login_data["dateDuration"] for login_data in data]
+            if end_at and begin_at:
+                try:
+                    # Parse ISO 8601 strings to datetime objects
+                    end_at_dt = datetime.fromisoformat(end_at.replace("Z", "+00:00"))
+                    begin_at_dt = datetime.fromisoformat(begin_at.replace("Z", "+00:00"))
 
-	plt.scatter(logtime_per_day, days_duration, color='blue', label='Data Points')
+                    # Clamp the session to the cursus duration
+                    if end_at_dt.date() < begin_date or begin_at_dt.date() > completion_date:
+                        continue
 
-	plt.xlabel("Logtime per Day (hours)")
-	plt.ylabel("Days in cursus")
-	plt.title("Days in common core vs. Logtime per Day")
-	plt.legend()
+                    begin_dt = datetime.fromisoformat(begin_at.replace("Z", "+00:00")).date()
+                    unique_days.add(begin_dt)
+                    end_dt = datetime.fromisoformat(end_at.replace("Z", "+00:00")).date()
+                    current_dt = begin_dt
+                    while current_dt <= end_dt:
+                        unique_days.add(current_dt)
+                        current_dt += timedelta(days=1)
 
-	plt.grid(True)
-	plt.show()
-	plt.savefig("./img/common_core_plot.png")
+                    # Accumulate session duration in seconds
+                    session_seconds = (end_at_dt - begin_at_dt).total_seconds()
+                    total_seconds += session_seconds
 
-	theta0, theta1 = linear_regression(logtime_per_day, days_duration)
+                except ValueError as e:
+                    print(f"Error parsing dates for login: {log}")
+                    print(f"Begin: {begin_at}, End: {end_at}, Error: {e}")
 
-	logtime_per_day_range = [min(logtime_per_day) + i * (max(logtime_per_day) - min(logtime_per_day)) / 100 for i in range(101)]
-	predicted_days_duration = [theta0 + theta1 * x for x in logtime_per_day_range]
+        # Check for next page
+        log_url = response.links.get("next", {}).get("url")
 
-	plt.scatter(logtime_per_day, days_duration, color='blue', label='Data Points')
-	plt.plot(logtime_per_day_range, predicted_days_duration, color='red', label='Regression Line')
+    total_hours = total_seconds / 3600
+    return total_hours, len(unique_days), total_days_in_cursus, end_date != None
 
-	plt.xlabel("Logtime per Day (hours)")
-	plt.ylabel("Days in cursus")
-	plt.title("Days in common core vs. Logtime per Day with regression line")
-	plt.legend()
 
-	plt.grid(True)
-	plt.show()
-	plt.savefig("./img/common_core_plot_with_linear.png")
+def visualize_data(data: dict, logtime: float, total_days_in_cursus: int):
+    """
+    Visualize the data and predict the number of days left in the common core for the user.
 
-	user_logtime_per_day = logtime / total_days_in_cursus
+    Args:
+        data (dict): The data containing the logtime and duration of the common core for each user.
+        logtime (float): The total logtime of the user.
+        total_days_in_cursus (int): The total number of days in the cursus.
+    """
 
-	print(f"User logtime per day: {user_logtime_per_day:.2f} hours")
+    days_duration = [login_data["dateDuration"] for login_data in data]
+    logtime_per_day = [login_data["logtimeHours"] / login_data["dateDuration"] for login_data in data]
 
-	predicted_days_for_user = theta0 + theta1 * user_logtime_per_day
+    plt.scatter(logtime_per_day, days_duration, color='blue', label='Data Points')
 
-	days_left = predicted_days_for_user - total_days_in_cursus
+    plt.xlabel("Logtime per Day (hours)")
+    plt.ylabel("Days in cursus")
+    plt.title("Days in common core vs. Logtime per Day")
+    plt.legend()
 
-	print(f"Predicted days left in common core: {days_left:.2f}")
+    plt.grid(True)
+    plt.show()
+    plt.savefig("./img/common_core_plot.png")
+
+    theta0, theta1 = linear_regression(logtime_per_day, days_duration)
+
+    logtime_per_day_range = [min(logtime_per_day) + i * (max(logtime_per_day) - min(logtime_per_day)) / 100 for i in range(101)]
+    predicted_days_duration = [theta0 + theta1 * x for x in logtime_per_day_range]
+
+    plt.scatter(logtime_per_day, days_duration, color='blue', label='Data Points')
+    plt.plot(logtime_per_day_range, predicted_days_duration, color='red', label='Regression Line')
+
+    plt.xlabel("Logtime per Day (hours)")
+    plt.ylabel("Days in cursus")
+    plt.title("Days in common core vs. Logtime per Day with regression line")
+    plt.legend()
+
+    plt.grid(True)
+    plt.show()
+    plt.savefig("./img/common_core_plot_with_linear.png")
+
+    user_logtime_per_day = logtime / total_days_in_cursus
+
+    print(f"User logtime per day: {user_logtime_per_day:.2f} hours")
+
+    predicted_days_for_user = theta0 + theta1 * user_logtime_per_day
+
+    days_left = predicted_days_for_user - total_days_in_cursus
+
+    print(f"Predicted days left in common core: {days_left:.2f}")
+
 
 def main():
-	load_dotenv()
-	UID = os.getenv("42UID")
-	SECRET = os.getenv("42SECRET")
+    try:
+        load_dotenv()
+        UID = os.getenv("42UID")
+        SECRET = os.getenv("42SECRET")
 
-	os.makedirs("img", exist_ok=True)
+        os.makedirs("img", exist_ok=True)
 
-	access_token = get_access_token(UID, SECRET)
+        access_token = get_access_token(UID, SECRET)
 
-	try:
-		with open("./data/common_core_completed.json", "r") as file:
-			data = json.load(file)
+        with open("./data/common_core_completed.json", "r") as file:
+            data = json.load(file)
+        login = input("42 login: ")
+        logtime, connected_days, total_days_in_cursus, has_finished_common_core = fetch_logtime(login, access_token)
+        print(f"\033[1mtotal logtime: {logtime:.2f} hours, connected days: {connected_days}, total days: {total_days_in_cursus}\033[0m")
 
-	except FileNotFoundError:
-		print("common_core_completed.json not found.")
-		return
-	except Exception as e:
-		print(f"An error occurred: {e}")
-		return
+        if has_finished_common_core:
+            print("User has already finished the common core.")
+        else:
+            visualize_data(data, logtime, total_days_in_cursus)
 
-	login = input("42 login: ")
-	logtime, connected_days, total_days_in_cursus, has_finished_common_core = fetch_logtime(login, access_token)
-	print(f"\033[1mtotal logtime: {logtime:.2f} hours, connected days: {connected_days}, total days: {total_days_in_cursus}\033[0m")
+    except FileNotFoundError:
+        print("common_core_completed.json not found.")
+        return
+    except Exception as e:
+        print(f"An error occurred: {e}")
+        return
 
-	if has_finished_common_core:
-		print("User has already finished the common core.")
-	else:
-		visualize_data(data, logtime, connected_days, total_days_in_cursus)
 
 if __name__ == "__main__":
-	main()
+    main()

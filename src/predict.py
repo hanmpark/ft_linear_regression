@@ -1,13 +1,13 @@
-def predict(theta0, theta1):
+def predict(theta0: float, theta1: float) -> float:
     """
     Predicts the price of a car based on its mileage.
 
     Args:
-        - theta0: The intercept of the regression line.
-        - theta1: The slope of the regression line.
+        theta0 (float): The intercept of the regression line.
+        theta1 (float): The slope of the regression line.
 
     Returns:
-        - The predicted price of the car.
+        float: The predicted price of the car.
     """
 
     input_mileage = int(input("Enter mileage: "))
