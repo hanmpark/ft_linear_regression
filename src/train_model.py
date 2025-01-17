@@ -1,6 +1,7 @@
 import os
 import argparse
 import matplotlib.pyplot as plt
+from loguru import logger
 
 
 def linear_regression(mileages: list, prices: list, verbose=False):
@@ -43,7 +44,7 @@ def linear_regression(mileages: list, prices: list, verbose=False):
         # Print the cost using the mean squared error:
         if epoch % 100 == 0 and verbose:
             cost = (1/n) * sum([(prices_pred[i] - prices[i]) ** 2 for i in range(n)])
-            print(f"Epoch {epoch}: Cost = {cost}, theta0 = {theta0}, theta1 = {theta1}")
+            logger.debug(f"Epoch {epoch}: Cost = {cost}, theta0 = {theta0}, theta1 = {theta1}")
 
     theta0 *= max_price
     theta1 *= max_price / max_mileage
@@ -84,11 +85,11 @@ def parse_data():
             prices = [values[1] for values in data]
 
     except FileNotFoundError:
-        print("data.csv file not found.")
+        logger.exception("An error occurred: data.csv file not found.")
         return None, None
 
-    except Exception as e:
-        print(f"An error occurred: {e}")
+    except Exception:
+        logger.exception("An error occurred")
         return None, None
 
     return mileages, prices
@@ -143,17 +144,21 @@ def main():
 
         os.makedirs("img", exist_ok=True)
 
+        logger.info("Getting data from data.csv")
         mileages, prices = parse_data()
         if mileages is None or prices is None:
             return
 
+        logger.info("Training the model with the given data")
         theta0, theta1 = linear_regression(mileages, prices, args.verbose == True)
         with open("./data/theta.csv", "w") as theta_file:
             theta_file.write(f"{theta0},{theta1}")
+        logger.info("Trained the model successfully")
 
+        logger.info("Printing the data points and regression line")
         print_data(mileages, prices, theta0, theta1)
-    except Exception as e:
-        print(f"An error occurred: {e}")
+    except Exception:
+        logger.exception("An error occurred")
 
 
 if __name__ == "__main__":

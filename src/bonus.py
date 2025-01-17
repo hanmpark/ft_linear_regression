@@ -6,6 +6,7 @@ import time
 from dotenv import load_dotenv
 from datetime import datetime, timedelta
 from train_model import linear_regression
+from loguru import logger
 
 
 def get_access_token(UID: str, SECRET: str) -> str:
@@ -55,7 +56,7 @@ def fetch_cursus_duration(login, access_token):
     response = requests.get(begin_url, headers=headers)
 
     if response.status_code == 404:
-        print(f"Error: User {login} not found.")
+        logger.error(f"User {login} not found.")
         return None, None
 
     response.raise_for_status()
@@ -175,9 +176,8 @@ def fetch_logtime(login: str, access_token: str):
                     session_seconds = (end_at_dt - begin_at_dt).total_seconds()
                     total_seconds += session_seconds
 
-                except ValueError as e:
-                    print(f"Error parsing dates for login: {log}")
-                    print(f"Begin: {begin_at}, End: {end_at}, Error: {e}")
+                except ValueError:
+                    logger.exception(f"Error parsing dates for login: {log}")
 
         # Check for next page
         log_url = response.links.get("next", {}).get("url")
@@ -229,13 +229,13 @@ def visualize_data(data: dict, logtime: float, total_days_in_cursus: int):
 
     user_logtime_per_day = logtime / total_days_in_cursus
 
-    print(f"User logtime per day: {user_logtime_per_day:.2f} hours")
+    logger.info(f"User logtime per day: {user_logtime_per_day:.2f} hours")
 
     predicted_days_for_user = theta0 + theta1 * user_logtime_per_day
 
     days_left = predicted_days_for_user - total_days_in_cursus
 
-    print(f"Predicted days left in common core: {days_left:.2f}")
+    logger.success(f"Predicted days left in common core: {days_left:.2f}")
 
 
 def main():
@@ -252,18 +252,18 @@ def main():
             data = json.load(file)
         login = input("42 login: ")
         logtime, connected_days, total_days_in_cursus, has_finished_common_core = fetch_logtime(login, access_token)
-        print(f"\033[1mtotal logtime: {logtime:.2f} hours, connected days: {connected_days}, total days: {total_days_in_cursus}\033[0m")
+        logger.info(f"\033[1mtotal logtime: {logtime:.2f} hours, connected days: {connected_days}, total days: {total_days_in_cursus}\033[0m")
 
         if has_finished_common_core:
-            print("User has already finished the common core.")
+            logger.info("User has already finished the common core.")
         else:
             visualize_data(data, logtime, total_days_in_cursus)
 
     except FileNotFoundError:
-        print("common_core_completed.json not found.")
+        logger.exception("common_core_completed.json not found.")
         return
-    except Exception as e:
-        print(f"An error occurred: {e}")
+    except Exception:
+        logger.exception(f"An error occurred")
         return
 
 

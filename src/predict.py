@@ -1,3 +1,6 @@
+from loguru import logger
+
+
 def predict(theta0: float, theta1: float) -> float:
     """
     Predicts the price of a car based on its mileage.
@@ -12,7 +15,7 @@ def predict(theta0: float, theta1: float) -> float:
 
     input_mileage = int(input("Enter mileage: "))
     if input_mileage < 0:
-        print("Error: mileage must be positive")
+        logger.error("Mileage must be positive")
         return
 
     predicted_price = theta0 + theta1 * input_mileage
@@ -23,22 +26,21 @@ def main():
     try:
         with open("./data/theta.csv", "r") as theta_file:
             values = [value.strip() for value in theta_file.read().split(",")]
+        if len(values) != 2 or not all([value.replace(".", "", 1).replace("-", "", 1).isdigit() for value in values]):
+            logger.error("theta.csv is not properly formatted")
+            return
+
+        theta0, theta1 = [float(value) for value in values]
+
+        logger.info(f"Predicted price: {predict(theta0, theta1)}")
 
     except FileNotFoundError:
-        print("theta.csv file not found. Please train the model first.")
+        logger.exception("theta.csv file not found. Please train the model first.")
         return
 
     except Exception as e:
-        print(f"An error occurred: {e}")
+        logger.exception(f"An error occurred")
         return
-
-    if len(values) != 2 or not all([value.replace(".", "", 1).replace("-", "", 1).isdigit() for value in values]):
-        print("Error: theta.csv is not properly formatted")
-        return
-
-    theta0, theta1 = [float(value) for value in values]
-
-    print(f"Predicted price: {predict(theta0, theta1)}")
 
 
 if __name__ == "__main__":
